@@ -398,12 +398,11 @@ static NSString* toBase64(NSData* data) {
     NSString* docsPath = [NSTemporaryDirectory()stringByStandardizingPath];
     NSFileManager* fileMgr = [[NSFileManager alloc] init]; // recommended by Apple (vs [NSFileManager defaultManager]) to be threadsafe
     NSString* filePath;
-    
-    // unique file name
-    NSTimeInterval timeStamp = [[NSDate date] timeIntervalSince1970];
-    NSNumber *timeStampObj = [NSNumber numberWithDouble: timeStamp];
+
+    // generate unique file name
+    int i = 1;
     do {
-        filePath = [NSString stringWithFormat:@"%@/%@%ld.%@", docsPath, CDV_PHOTO_PREFIX, [timeStampObj longValue], extension];
+        filePath = [NSString stringWithFormat:@"%@/%@%03d.%@", docsPath, CDV_PHOTO_PREFIX, i++, extension];
     } while ([fileMgr fileExistsAtPath:filePath]);
 
     return filePath;
@@ -510,18 +509,29 @@ static NSString* toBase64(NSData* data) {
     completion(result);
 }
 
+// - (CDVPluginResult*)resultForVideo:(NSDictionary*)info
+// {
+//     NSString* moviePath = [[info objectForKey:UIImagePickerControllerMediaURL] absoluteString];
+//     return [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:moviePath];
+// }
+
 - (CDVPluginResult*)resultForVideo:(NSDictionary*)info
 {
-    NSString* moviePath = [[info objectForKey:UIImagePickerControllerMediaURL] absoluteString];
-    return [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:moviePath];
+NSString* moviePath = [[info objectForKey:UIImagePickerControllerMediaURL] path];
+NSArray* spliteArray = [moviePath componentsSeparatedByString: @"/"];
+NSString* lastString = [spliteArray lastObject];
+NSError *error;
+NSFileManager *fileManager = [NSFileManager defaultManager];
+NSString *documentsDirectory = [NSHomeDirectory() stringByAppendingPathComponent:@"tmp"];
+NSString *filePath = [documentsDirectory stringByAppendingPathComponent:lastString];
+[fileManager copyItemAtPath:moviePath toPath:filePath error:&error];
+return [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:filePath];
 }
 
 - (void)imagePickerController:(UIImagePickerController*)picker didFinishPickingMediaWithInfo:(NSDictionary*)info
 {
     __weak CDVCameraPicker* cameraPicker = (CDVCameraPicker*)picker;
     __weak CDVCamera* weakSelf = self;
-
-    self.latestMediaInfo = info;
 
     dispatch_block_t invoke = ^(void) {
         __block CDVPluginResult* result = nil;
